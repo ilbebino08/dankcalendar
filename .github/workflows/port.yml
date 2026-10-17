@@ -23,12 +23,13 @@ concurrency:
 
 jobs:
   port:
-    # Release automation uses the upstream maintainers' GitHub App.
-    if: github.repository == 'AvengeMedia/dankcalendar'
     name: Port flagged commits
     runs-on: ubuntu-latest
+    env:
+      HAS_APP_CREDENTIALS: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
     steps:
       - name: Create GitHub App token
+        if: env.HAS_APP_CREDENTIALS == 'true'
         id: app_token
         uses: actions/create-github-app-token@v3
         with:
@@ -41,12 +42,12 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
-          token: ${{ steps.app_token.outputs.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Port trailer-flagged commits
         if: github.event_name == 'push'
         env:
-          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || github.token }}
           COMMITS: ${{ toJSON(github.event.commits) }}
         run: |
           set -euo pipefail
@@ -82,7 +83,7 @@ jobs:
           (github.event.action == 'closed' ||
            (github.event.action == 'labeled' && startsWith(github.event.label.name, 'port ')))
         env:
-          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || github.token }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           PORT_SOURCE_PR: ${{ github.event.pull_request.number }}

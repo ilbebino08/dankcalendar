@@ -18,11 +18,12 @@ permissions:
 
 jobs:
   update-vendor-hash:
-    # Dependency updates use the upstream maintainers' GitHub App.
-    if: github.repository == 'AvengeMedia/dankcalendar'
     runs-on: ubuntu-latest
+    env:
+      HAS_APP_CREDENTIALS: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
     steps:
       - name: Create GitHub App token
+        if: env.HAS_APP_CREDENTIALS == 'true'
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
@@ -34,7 +35,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-          token: ${{ steps.app_token.outputs.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -58,7 +59,7 @@ jobs:
 
       - name: Commit and push vendorHash update
         env:
-          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || github.token }}
         run: |
           set -euo pipefail
           if ! git diff --quiet flake.nix; then

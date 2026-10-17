@@ -23,6 +23,8 @@ concurrency:
 
 jobs:
   port:
+    # Release automation uses the upstream maintainers' GitHub App.
+    if: github.repository == 'AvengeMedia/dankcalendar'
     name: Port flagged commits
     runs-on: ubuntu-latest
     steps:

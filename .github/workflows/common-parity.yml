@@ -14,6 +14,8 @@ permissions:
 
 jobs:
   sync:
+    # Dependency updates use the upstream maintainers' GitHub App.
+    if: github.repository == 'AvengeMedia/dankcalendar'
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token

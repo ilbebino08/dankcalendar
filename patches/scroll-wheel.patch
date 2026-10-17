@@ -2,44 +2,26 @@ diff --git a/DankCommon/Widgets/DankFlickable.qml b/DankCommon/Widgets/DankFlick
 index 78cc3d7..03e7b2c 100644
 --- a/DankCommon/Widgets/DankFlickable.qml
 +++ b/DankCommon/Widgets/DankFlickable.qml
-@@ -51,7 +51,8 @@ Flickable {
-             const timeDelta = currentTime - lastWheelTime;
-             lastWheelTime = currentTime;
- 
+@@ -54 +54,2 @@ Flickable {
 -            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
 +            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
 +            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
-             const deltaY = event.angleDelta.y;
-             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
-             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
 diff --git a/DankCommon/Widgets/DankGridView.qml b/DankCommon/Widgets/DankGridView.qml
 index 294a3b2..4d6c43f 100644
 --- a/DankCommon/Widgets/DankGridView.qml
 +++ b/DankCommon/Widgets/DankGridView.qml
-@@ -48,7 +48,8 @@ GridView {
-             const timeDelta = currentTime - lastWheelTime;
-             lastWheelTime = currentTime;
- 
+@@ -51 +51,2 @@ GridView {
 -            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
 +            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
 +            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
-             const deltaY = event.angleDelta.y;
-             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
-             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
 diff --git a/DankCommon/Widgets/DankListView.qml b/DankCommon/Widgets/DankListView.qml
 index 0722f32..4f1cb97 100644
 --- a/DankCommon/Widgets/DankListView.qml
 +++ b/DankCommon/Widgets/DankListView.qml
-@@ -186,7 +186,8 @@ ListView {
-             const timeDelta = currentTime - lastWheelTime;
-             lastWheelTime = currentTime;
- 
+@@ -189 +189,2 @@ ListView {
 -            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
 +            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
 +            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
-             const deltaY = event.angleDelta.y;
-             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
-             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
 diff --git a/tests/scroll-wheel.test.mjs b/tests/scroll-wheel.test.mjs
 new file mode 100644
 index 0000000..bdc9aaf

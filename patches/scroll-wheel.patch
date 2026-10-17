@@ -1,0 +1,109 @@
+diff --git a/DankCommon/Widgets/DankFlickable.qml b/DankCommon/Widgets/DankFlickable.qml
+index 78cc3d7..03e7b2c 100644
+--- a/DankCommon/Widgets/DankFlickable.qml
++++ b/DankCommon/Widgets/DankFlickable.qml
+@@ -51,7 +51,8 @@ Flickable {
+             const timeDelta = currentTime - lastWheelTime;
+             lastWheelTime = currentTime;
+ 
+-            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
++            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
++            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
+             const deltaY = event.angleDelta.y;
+             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
+             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
+diff --git a/DankCommon/Widgets/DankGridView.qml b/DankCommon/Widgets/DankGridView.qml
+index 294a3b2..4d6c43f 100644
+--- a/DankCommon/Widgets/DankGridView.qml
++++ b/DankCommon/Widgets/DankGridView.qml
+@@ -48,7 +48,8 @@ GridView {
+             const timeDelta = currentTime - lastWheelTime;
+             lastWheelTime = currentTime;
+ 
+-            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
++            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
++            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
+             const deltaY = event.angleDelta.y;
+             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
+             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
+diff --git a/DankCommon/Widgets/DankListView.qml b/DankCommon/Widgets/DankListView.qml
+index 0722f32..4f1cb97 100644
+--- a/DankCommon/Widgets/DankListView.qml
++++ b/DankCommon/Widgets/DankListView.qml
+@@ -186,7 +186,8 @@ ListView {
+             const timeDelta = currentTime - lastWheelTime;
+             lastWheelTime = currentTime;
+ 
+-            const hasPixel = event.pixelDelta && event.pixelDelta.y !== 0;
++            // Wheels can report pixel deltas too; only finger gestures carry scroll phases.
++            const hasPixel = event.phase !== Qt.NoScrollPhase && event.pixelDelta && event.pixelDelta.y !== 0;
+             const deltaY = event.angleDelta.y;
+             const isTraditionalMouse = !hasPixel && Math.abs(deltaY) >= 120 && (Math.abs(deltaY) % 120) === 0;
+             const isHighDpiMouse = !hasPixel && !isTraditionalMouse && deltaY !== 0;
+diff --git a/tests/scroll-wheel.test.mjs b/tests/scroll-wheel.test.mjs
+new file mode 100644
+index 0000000..bdc9aaf
+--- /dev/null
++++ b/tests/scroll-wheel.test.mjs
+@@ -0,0 +1,61 @@
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import vm from "node:vm";
++import test from "node:test";
++
++const Scroll = vm.runInNewContext(readFileSync(new URL("../DankCommon/Widgets/ScrollConstants.js", import.meta.url), "utf8").replace(/^\.pragma.*$/gm, "") + "; ({ touchpadSpeed, mouseWheelSpeed, momentumRetention, momentumDeltaFactor, velocitySampleWindowMs, momentumTimeThreshold, maxMomentumVelocity, minMomentumVelocity })");
++
++for (const name of ["DankFlickable", "DankListView", "DankGridView"]) {
++    const source = readFileSync(new URL(`../DankCommon/Widgets/${name}.qml`, import.meta.url), "utf8");
++    const wheel = source.slice(source.indexOf("onWheel: event => {") + "onWheel: event => {".length, source.indexOf("event.accepted = true;")) + "event.accepted = true;";
++    const inactive = source.match(/onActiveChanged: \{([\s\S]*?)\n        \}/)[1];
++
++    function setup() {
++        const view = { contentY: 500, contentHeight: 2000, height: 300, originY: 0, maximumContentY: 1700, mouseWheelSpeed: 60, momentumVelocity: 0, isMomentumActive: false };
++        let now = 1000;
++        const context = vm.createContext({
++            ...view, flickable: view, listView: view, Scroll,
++            Qt: { NoScrollPhase: 0 }, Date: { now: () => now += 10 },
++            vbar: { hideTimer: { restart() {} } },
++            momentumAnim: { running: false },
++            touchpadSpeed: Scroll.touchpadSpeed,
++            momentumRetention: Scroll.momentumRetention,
++            lastWheelTime: 0, momentum: 0, velocitySamples: [],
++            sessionUsedMouseWheel: false, cellHeight: 60,
++            flicking: false, active: false,
++        });
++        context.startMomentum = () => { context.momentumAnim.running = true; };
++        return {
++            context,
++            view: name === "DankFlickable" ? view : name === "DankListView" ? view : context,
++            send(phase, angle, pixels) {
++                context.event = { phase, angleDelta: { x: 0, y: angle }, pixelDelta: { x: 0, y: pixels } };
++                vm.runInContext(`{ ${wheel} }`, context);
++            },
++            finish() { vm.runInContext(inactive, context); },
++        };
++    }
++
++    for (const angle of [-120, -30]) {
++        test(`${name}: wheel ${angle} with pixel deltas stops without a delayed fling`, () => {
++            const scroll = setup();
++            scroll.send(0, angle, -15);
++            scroll.send(0, angle, -15);
++            assert.ok(scroll.view.contentY > 500, "wheel scrolls immediately");
++            scroll.finish();
++            assert.equal(scroll.context.momentumAnim.running, false);
++            assert.equal(scroll.context.sessionUsedMouseWheel, true);
++        });
++    }
++
++    test(`${name}: trackpad retains momentum and switching to a wheel clears it`, () => {
++        const scroll = setup();
++        scroll.send(1, -20, -10);
++        scroll.send(2, -20, -10);
++        scroll.finish();
++        assert.equal(scroll.context.momentumAnim.running, true, "trackpad keeps its fling");
++        scroll.send(0, -120, -15);
++        scroll.finish();
++        assert.equal(scroll.context.momentumAnim.running, false, "wheel cancels trackpad momentum");
++    });
++}
